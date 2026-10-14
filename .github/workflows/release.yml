@@ -1,0 +1,151 @@
+# Собирает Mone App для всех платформ и выкладывает файлы на страницу
+# Releases. Запускается при отправке метки вида v1.0.0 (git tag v1.0.0 &&
+# git push origin v1.0.0) или вручную на вкладке Actions.
+name: Сборка всех версий
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  FLUTTER_VERSION: '3.47.5'
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+
+  windows:
+    needs: test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - run: flutter build windows --release
+      - name: Упаковать
+        shell: pwsh
+        run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath Mone-App-Windows.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: Mone-App-Windows.zip
+
+  android:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - run: flutter build apk --release
+      - run: cp build/app/outputs/flutter-apk/app-release.apk Mone-App-Android.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: Mone-App-Android.apk
+
+  linux:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y ninja-build libgtk-3-dev
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - run: flutter build linux --release
+      - run: tar -czf Mone-App-Linux.tar.gz -C build/linux/x64/release/bundle .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: Mone-App-Linux.tar.gz
+
+  macos:
+    needs: test
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - run: flutter build macos --release
+      - name: Упаковать
+        run: |
+          cd build/macos/Build/Products/Release
+          ditto -c -k --keepParent "mone_desktop_app.app" "$GITHUB_WORKSPACE/Mone-App-macOS.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: Mone-App-macOS.zip
+
+  ios:
+    needs: test
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      # Без подписи Apple: для установки нужен Apple ID (Sideloadly/AltStore)
+      # или аккаунт разработчика Apple.
+      - run: flutter build ios --release --no-codesign
+      - name: Упаковать в .ipa
+        run: |
+          mkdir Payload
+          cp -R build/ios/iphoneos/Runner.app Payload/
+          zip -qr Mone-App-iOS-unsigned.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios
+          path: Mone-App-iOS-unsigned.ipa
+
+  release:
+    needs: [windows, android, linux, macos, ios]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || format('build-{0}', github.run_number) }}
+          name: Mone App ${{ github.ref_type == 'tag' && github.ref_name || format('сборка {0}', github.run_number) }}
+          make_latest: true
+          body: |
+            Скачайте файл для своего устройства:
+
+            - **Windows** — `Mone-App-Windows.zip`: распакуйте и запустите `mone_desktop_app.exe`.
+            - **Android** — `Mone-App-Android.apk`: откройте на телефоне и разрешите установку из этого источника.
+            - **macOS** — `Mone-App-macOS.zip`: распакуйте; при первом запуске правой кнопкой → «Открыть».
+            - **Linux** — `Mone-App-Linux.tar.gz`: распакуйте и запустите `mone_desktop_app`.
+            - **iPhone / iPad** — `Mone-App-iOS-unsigned.ipa`: без подписи Apple, ставится через Sideloadly/AltStore с вашим Apple ID.
+          files: |
+            Mone-App-Windows.zip
+            Mone-App-Android.apk
+            Mone-App-macOS.zip
+            Mone-App-Linux.tar.gz
+            Mone-App-iOS-unsigned.ipa

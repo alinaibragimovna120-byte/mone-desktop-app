@@ -2,6 +2,19 @@
 
 Программа для хранения и просмотра техкарт и документов кафе.
 
+## Скачать
+
+| Устройство | Файл |
+|---|---|
+| Windows | [Mone-App-Windows.zip](https://github.com/alinaibragimovna120-byte/mone-desktop-app/releases/latest/download/Mone-App-Windows.zip) |
+| Android | [Mone-App-Android.apk](https://github.com/alinaibragimovna120-byte/mone-desktop-app/releases/latest/download/Mone-App-Android.apk) |
+| macOS | [Mone-App-macOS.zip](https://github.com/alinaibragimovna120-byte/mone-desktop-app/releases/latest/download/Mone-App-macOS.zip) |
+| Linux | [Mone-App-Linux.tar.gz](https://github.com/alinaibragimovna120-byte/mone-desktop-app/releases/latest/download/Mone-App-Linux.tar.gz) |
+| iPhone / iPad | [Mone-App-iOS-unsigned.ipa](https://github.com/alinaibragimovna120-byte/mone-desktop-app/releases/latest/download/Mone-App-iOS-unsigned.ipa) (без подписи Apple) |
+
+Все версии: [страница Releases](https://github.com/alinaibragimovna120-byte/mone-desktop-app/releases).
+Новая сборка выкладывается автоматически при отправке метки версии: `git tag v1.0.1 && git push origin v1.0.1`.
+
 ## Возможности
 
 - Добавление любых файлов: кнопка «Добавить файл», перетаскивание мышкой, Ctrl+V (на компьютере).
