@@ -1,11 +1,11 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 import 'package:xml/xml.dart';
 
 import 'file_readers.dart';
+import 'file_store.dart';
 
 // ---------- Модель содержимого текстового документа ----------
 
@@ -97,7 +97,7 @@ void forgetDocument(String path) => _docCache.remove(path);
 
 Future<DocContent> readDocument(String path) {
   return _docCache.putIfAbsent(path, () async {
-    final bytes = await File(path).readAsBytes();
+    final bytes = await readFileBytes(path);
     final ext = path.split('.').last.toLowerCase();
     switch (ext) {
       case 'docx':

@@ -1,11 +1,10 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:pdfrx/pdfrx.dart';
 
 import '../models/document_item.dart';
 import '../services/document_parsers.dart';
 import '../services/file_readers.dart';
+import '../services/file_store.dart';
 import 'document_content_view.dart';
 
 /// Картинка-превью документа для карточки на главной странице:
@@ -39,12 +38,11 @@ class DocumentThumbnail extends StatelessWidget {
     }
   }
 
-  Widget _imageFile(String path) => Image.file(
-    File(path),
+  Widget _imageFile(String path) => Image(
+    image: ResizeImage.resizeIfNeeded(600, null, storedImage(path)),
     fit: BoxFit.cover,
     width: double.infinity,
     height: double.infinity,
-    cacheWidth: 600,
     errorBuilder: (_, _, _) => _iconPreview(),
   );
 
@@ -79,8 +77,8 @@ class _PdfFirstPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: Colors.white,
-      child: PdfDocumentViewBuilder.file(
-        path,
+      child: PdfDocumentViewBuilder(
+        documentRef: storedPdf(path),
         builder: (context, document) {
           if (document == null) {
             return const Center(

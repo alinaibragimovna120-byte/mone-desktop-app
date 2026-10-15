@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pdfrx/pdfrx.dart';
@@ -8,6 +6,7 @@ import '../models/document_item.dart';
 import '../services/document_editor.dart';
 import '../services/document_parsers.dart';
 import '../services/file_readers.dart';
+import '../services/file_store.dart';
 import '../services/platform.dart';
 import '../widgets/document_content_view.dart';
 
@@ -70,7 +69,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
   }
 
   Future<void> _openExternal() async {
-    final ok = await openInSystemApp(doc.path);
+    final ok = await openInSystemApp(doc.path, doc.name);
     if (!ok) _toast('Не найдена программа для открытия файла', error: true);
   }
 
@@ -126,7 +125,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
           for (final e in _cellEdits.entries) e.key: Map.of(e.value),
         });
       }
-      doc.sizeBytes = await File(doc.path).length();
+      doc.sizeBytes = await fileLength(doc.path);
       setState(() {
         _editing = false;
         _docEdits.clear();
@@ -164,7 +163,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
     );
     if (ok != true) return;
     await restoreOriginal(doc.path);
-    doc.sizeBytes = await File(doc.path).length();
+    doc.sizeBytes = await fileLength(doc.path);
     setState(_load);
     _toast('Исходный файл восстановлен');
   }
@@ -421,8 +420,8 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
   Widget _body() {
     switch (doc.kind) {
       case DocumentKind.pdf:
-        return PdfViewer.file(
-          doc.path,
+        return PdfViewer(
+          storedPdf(doc.path),
           params: PdfViewerParams(
             backgroundColor: const Color(0xFFEDEEF1),
             errorBannerBuilder: (context, error, stackTrace, documentRef) =>
@@ -432,7 +431,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
       case DocumentKind.image:
         return InteractiveViewer(
           maxScale: 8,
-          child: Center(child: Image.file(File(doc.path))),
+          child: Center(child: Image(image: storedImage(doc.path))),
         );
       case DocumentKind.spreadsheet:
         return _SpreadsheetView(

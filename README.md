@@ -12,6 +12,16 @@
 | Linux | [Mone-App-Linux.tar.gz](https://github.com/alinaibragimovna120-byte/mone-desktop-app/releases/latest/download/Mone-App-Linux.tar.gz) |
 | iPhone / iPad | [Mone-App-iOS-unsigned.ipa](https://github.com/alinaibragimovna120-byte/mone-desktop-app/releases/latest/download/Mone-App-iOS-unsigned.ipa) (без подписи Apple) |
 
+### iPhone / iPad без компьютера и App Store
+
+Откройте в **Safari** на iPhone: <https://alinaibragimovna120-byte.github.io/mone-desktop-app/>
+
+Чтобы приложение было на экране как обычное: кнопка «Поделиться» → «На экран „Домой“».
+Оно откроется во весь экран, без адресной строки. Файлы хранятся на самом телефоне,
+в данных Safari; если очистить историю и данные сайтов, они удалятся.
+
+Веб-версия обновляется сама при каждой отправке изменений в `main`.
+
 Все версии: [страница Releases](https://github.com/alinaibragimovna120-byte/mone-desktop-app/releases).
 Новая сборка выкладывается автоматически при отправке метки версии: `git tag v1.0.1 && git push origin v1.0.1`.
 
@@ -33,6 +43,7 @@
 | iPhone / iPad | `flutter build ios` (только на Mac с Xcode) |
 | macOS | `flutter build macos` (только на Mac) |
 | Linux | `flutter build linux` (только на Linux) |
+| Браузер / iPhone (PWA) | `flutter build web` |
 
 ## Разработка
 

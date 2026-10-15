@@ -1,10 +1,12 @@
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pasteboard/pasteboard.dart';
 
 import '../models/document_item.dart';
 import '../services/document_storage.dart';
+import '../services/file_store.dart';
 import '../services/platform.dart';
 import '../widgets/add_files_dialog.dart';
 import '../widgets/document_card.dart';
@@ -59,17 +61,23 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ---------- Добавление файлов ----------
 
-  Future<void> _addPaths(List<String> paths) async {
-    if (paths.isEmpty) return;
+  Future<void> _addPaths(List<String> paths) => _import([
+    for (final path in paths) (path, () => _storage.importFile(path)),
+  ]);
+
+  /// [jobs]: название файла (для сообщения об ошибке) и его добавление.
+  Future<void> _import(
+    List<(String, Future<DocumentItem> Function())> jobs,
+  ) async {
+    if (jobs.isEmpty) return;
     var added = 0;
     final failed = <String>[];
-    for (final path in paths) {
+    for (final (name, importDoc) in jobs) {
       try {
-        final doc = await _storage.importFile(path);
-        _docs.insert(0, doc);
+        _docs.insert(0, await importDoc());
         added++;
       } catch (_) {
-        failed.add(path);
+        failed.add(name);
       }
     }
     setState(() {});
@@ -83,11 +91,23 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _pickFiles() async {
     try {
-      final result = await FilePicker.platform.pickFiles(allowMultiple: true);
-      if (result == null) return;
-      await _addPaths(
-        result.files.map((f) => f.path).whereType<String>().toList(),
+      // В браузере путей к файлам нет — берём сразу содержимое.
+      final result = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        withData: kIsWeb,
       );
+      if (result == null) return;
+      if (kIsWeb) {
+        await _import([
+          for (final f in result.files)
+            if (f.bytes != null)
+              (f.name, () => _storage.importBytes(f.name, f.bytes!)),
+        ]);
+      } else {
+        await _addPaths(
+          result.files.map((f) => f.path).whereType<String>().toList(),
+        );
+      }
     } catch (e) {
       _toast('Ошибка при выборе файла: $e', error: true);
     }
@@ -147,7 +167,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _openExternal(DocumentItem doc) async {
-    final ok = await openInSystemApp(doc.path);
+    final ok = await openInSystemApp(doc.path, doc.name);
     if (!ok) _toast('Не найдена программа для открытия файла', error: true);
   }
 
@@ -181,11 +201,15 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _setCover(DocumentItem doc) async {
-    final result = await FilePicker.platform.pickFiles(type: FileType.image);
-    final path = result?.files.single.path;
-    if (path == null) return;
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      withData: kIsWeb,
+    );
+    final file = result?.files.single;
+    if (file == null) return;
+    final bytes = file.bytes ?? await readFileBytes(file.path!);
     await _storage.removeCover(doc);
-    final cover = await _storage.importCover(path);
+    final cover = await _storage.importCover(file.name, bytes);
     setState(() => doc.coverPath = cover);
     await _persist();
   }

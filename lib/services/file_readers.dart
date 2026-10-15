@@ -1,10 +1,10 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:archive/archive.dart';
 import 'package:xml/xml.dart';
 
 import 'document_parsers.dart';
+import 'file_store.dart';
 
 /// Лист таблицы: название и строки ячеек в виде текста.
 class SheetData {
@@ -58,7 +58,7 @@ void forgetSpreadsheet(String path) => _sheetCache.remove(path);
 Future<List<SheetData>> readSpreadsheet(String path) {
   return _sheetCache.putIfAbsent(path, () async {
     if (path.toLowerCase().endsWith('.csv')) return readCsv(path);
-    return parseXlsx(await File(path).readAsBytes());
+    return parseXlsx(await readFileBytes(path));
   });
 }
 
@@ -177,7 +177,7 @@ String _cellValue(XmlElement c, List<String> shared) {
 
 /// Читает текстовый файл, не падая на неправильной кодировке.
 Future<String> readText(String path, {int? maxChars}) async {
-  final bytes = await File(path).readAsBytes();
+  final bytes = await readFileBytes(path);
   final text = _decodeUtf8(bytes);
   if (maxChars != null && text.length > maxChars) {
     return text.substring(0, maxChars);

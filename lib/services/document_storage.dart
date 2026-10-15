@@ -1,38 +1,34 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 
 import '../models/document_item.dart';
 import 'document_editor.dart';
+import 'file_store.dart';
 
-/// Хранит копии добавленных файлов и список документов на диске,
+/// Хранит копии добавленных файлов и список документов,
 /// чтобы после перезапуска программы всё оставалось на месте.
 class DocumentStorage {
-  late Directory _filesDir;
-  late Directory _coversDir;
-  late File _indexFile;
+  late String _filesDir;
+  late String _coversDir;
+  late String _indexPath;
 
   Future<void> init() async {
-    final root = Directory(
-      p.join((await getApplicationSupportDirectory()).path, 'mone_documents'),
-    );
-    _filesDir = Directory(p.join(root.path, 'files'));
-    _coversDir = Directory(p.join(root.path, 'covers'));
-    _indexFile = File(p.join(root.path, 'index.json'));
-    await _filesDir.create(recursive: true);
-    await _coversDir.create(recursive: true);
+    final root = await storageRoot();
+    _filesDir = p.join(root, 'files');
+    _coversDir = p.join(root, 'covers');
+    _indexPath = p.join(root, 'index.json');
   }
 
   Future<List<DocumentItem>> load() async {
-    if (!await _indexFile.exists()) return [];
+    if (!fileExists(_indexPath)) return [];
     try {
-      final raw = jsonDecode(await _indexFile.readAsString()) as List;
+      final raw =
+          jsonDecode(utf8.decode(await readFileBytes(_indexPath))) as List;
       return raw
           .map((e) => DocumentItem.fromJson(e as Map<String, dynamic>))
-          .where((d) => File(d.path).existsSync())
+          .where((d) => fileExists(d.path))
           .toList();
     } catch (_) {
       return [];
@@ -40,56 +36,57 @@ class DocumentStorage {
   }
 
   Future<void> save(List<DocumentItem> docs) async {
-    await _indexFile.writeAsString(
-      jsonEncode(docs.map((d) => d.toJson()).toList()),
+    await writeFileBytes(
+      _indexPath,
+      utf8.encode(jsonEncode(docs.map((d) => d.toJson()).toList())),
     );
   }
 
-  String _newId() => DateTime.now().microsecondsSinceEpoch.toString();
+  int _lastId = 0;
+
+  /// Время в микросекундах; в браузере часы точны лишь до миллисекунды,
+  /// поэтому следим, чтобы два файла подряд не получили один номер.
+  String _newId() {
+    var id = DateTime.now().microsecondsSinceEpoch;
+    if (id <= _lastId) id = _lastId + 1;
+    _lastId = id;
+    return '$id';
+  }
 
   /// Копирует файл с диска во внутреннее хранилище.
-  Future<DocumentItem> importFile(String sourcePath) async {
-    final id = _newId();
-    final name = p.basename(sourcePath);
-    final target = p.join(_filesDir.path, '${id}_$name');
-    final copied = await File(sourcePath).copy(target);
-    return DocumentItem(
-      id: id,
-      name: name,
-      path: copied.path,
-      sizeBytes: await copied.length(),
-      addedAt: DateTime.now(),
-    );
-  }
+  Future<DocumentItem> importFile(String sourcePath) async =>
+      importBytes(p.basename(sourcePath), await readFileBytes(sourcePath));
 
-  /// Сохраняет картинку из буфера обмена как отдельный документ.
-  Future<DocumentItem> importImageBytes(Uint8List bytes) async {
+  /// Сохраняет содержимое файла (например, выбранного в браузере).
+  Future<DocumentItem> importBytes(String name, Uint8List bytes) async {
     final id = _newId();
-    final name = 'Изображение ${_stamp()}.png';
-    final file = File(p.join(_filesDir.path, '${id}_$name'));
-    await file.writeAsBytes(bytes);
+    final path = p.join(_filesDir, '${id}_$name');
+    await writeFileBytes(path, bytes);
     return DocumentItem(
       id: id,
       name: name,
-      path: file.path,
+      path: path,
       sizeBytes: bytes.length,
       addedAt: DateTime.now(),
     );
   }
 
-  Future<String> importCover(String sourcePath) async {
-    final target = p.join(
-      _coversDir.path,
-      '${_newId()}${p.extension(sourcePath)}',
-    );
-    return (await File(sourcePath).copy(target)).path;
+  /// Сохраняет картинку из буфера обмена как отдельный документ.
+  Future<DocumentItem> importImageBytes(Uint8List bytes) =>
+      importBytes('Изображение ${_stamp()}.png', bytes);
+
+  /// [name] нужен только ради расширения (.png, .jpg…).
+  Future<String> importCover(String name, Uint8List bytes) async {
+    final path = p.join(_coversDir, '${_newId()}${p.extension(name)}');
+    await writeFileBytes(path, bytes);
+    return path;
   }
 
   Future<void> delete(DocumentItem doc) async {
     for (final path in [doc.path, originalCopyPath(doc.path), doc.coverPath]) {
       if (path == null) continue;
       try {
-        await File(path).delete();
+        await deleteFile(path);
       } catch (_) {}
     }
   }
@@ -99,7 +96,7 @@ class DocumentStorage {
     doc.coverPath = null;
     if (path != null) {
       try {
-        await File(path).delete();
+        await deleteFile(path);
       } catch (_) {}
     }
   }

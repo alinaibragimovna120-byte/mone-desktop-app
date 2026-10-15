@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
@@ -6,6 +5,7 @@ import 'package:xml/xml.dart';
 
 import 'document_parsers.dart';
 import 'file_readers.dart';
+import 'file_store.dart';
 
 /// Сохраняет исправления текста обратно в файлы Word и Excel.
 ///
@@ -16,14 +16,14 @@ import 'file_readers.dart';
 
 String originalCopyPath(String path) => '$path.orig';
 
-bool hasOriginalCopy(String path) => File(originalCopyPath(path)).existsSync();
+bool hasOriginalCopy(String path) => fileExists(originalCopyPath(path));
 
 /// Возвращает файл к состоянию до первого исправления.
 Future<void> restoreOriginal(String path) async {
-  final orig = File(originalCopyPath(path));
-  if (!await orig.exists()) return;
-  await orig.copy(path);
-  await orig.delete();
+  final orig = originalCopyPath(path);
+  if (!fileExists(orig)) return;
+  await writeFileBytes(path, await readFileBytes(orig));
+  await deleteFile(orig);
   forgetDocument(path);
   forgetSpreadsheet(path);
 }
@@ -378,16 +378,12 @@ void _putXml(Archive archive, String name, XmlDocument doc) {
 }
 
 Future<void> _rewriteZip(String path, void Function(Archive) modify) async {
-  final file = File(path);
-  final bytes = await file.readAsBytes();
+  final bytes = await readFileBytes(path);
   final archive = ZipDecoder().decodeBytes(bytes);
   modify(archive);
   final Uint8List encoded = ZipEncoder().encodeBytes(archive);
 
-  final orig = File(originalCopyPath(path));
-  if (!await orig.exists()) await orig.writeAsBytes(bytes);
-
-  final tmp = File('$path.tmp');
-  await tmp.writeAsBytes(encoded, flush: true);
-  await tmp.rename(path);
+  final orig = originalCopyPath(path);
+  if (!fileExists(orig)) await writeFileBytes(orig, bytes);
+  await writeFileBytes(path, encoded);
 }
