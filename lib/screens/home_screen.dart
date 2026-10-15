@@ -8,6 +8,7 @@ import '../models/document_item.dart';
 import '../services/document_storage.dart';
 import '../services/file_store.dart';
 import '../services/platform.dart';
+import '../services/shared_files.dart';
 import '../widgets/add_files_dialog.dart';
 import '../widgets/document_card.dart';
 import '../widgets/file_drop_area.dart';
@@ -42,6 +43,8 @@ class _HomeScreenState extends State<HomeScreen> {
         _docs.addAll(docs);
         _loading = false;
       });
+      // Только после загрузки списка, иначе сохранение затрёт его.
+      listenSharedFiles(_addPaths);
     });
   }
 

@@ -6,8 +6,7 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:launchMode="singleTop"
-            android:taskAffinity=""
+            android:launchMode="singleTask"
             android:theme="@style/LaunchTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
@@ -23,6 +22,30 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <!-- «Поделиться» из Telegram и других приложений. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="*/*"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="*/*"/>
+            </intent-filter>
+            <!-- «Открыть с помощью». -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:scheme="content"/>
+                <data android:mimeType="application/pdf"/>
+                <data android:mimeType="image/*"/>
+                <data android:mimeType="application/msword"/>
+                <data android:mimeType="application/vnd.ms-excel"/>
+                <data android:mimeType="application/vnd.openxmlformats-officedocument.wordprocessingml.document"/>
+                <data android:mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"/>
+                <data android:mimeType="text/csv"/>
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
